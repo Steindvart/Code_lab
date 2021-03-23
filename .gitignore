@@ -1,0 +1,19 @@
+# ---Windows---
+# Ignoring all files in catalogs:
+.vs/
+build/
+
+# Ignoring all files in all catalogs
+
+# ---Linux---
+# Ignoring all files in catalogs:
+.vscode/
+
+# Ignoring all files in all catalogs
+**/*.o
+#Makefile_debug
+
+# Ignoring all executable files in all catalogs
+**/*.x
+**/*.elf
+**/*.code-workspace
