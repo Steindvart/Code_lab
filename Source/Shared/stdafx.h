@@ -10,15 +10,19 @@
 // STD
 #include <algorithm>
 #include <cmath>
-#include <iostream>
 #include <fstream>
-#include <vector>
+#include <iostream>
 #include <string>
 #include <functional>
+#include <numeric>
 
+// STL-containers
+#include <vector>
+
+// Threads
 #include <atomic>
-#include <condition_variable>
 #include <thread>
+#include <condition_variable>
 
 // Windows
 #include <Windows.h>
