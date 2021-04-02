@@ -11,12 +11,10 @@
 SoundWrapper::SoundWrapper(const std::wstring& outputDevice, int sampleRate, short channels, size_t blocks, size_t samplesPerBlock)
 	: m_sampleRate(sampleRate)
 	, m_channels(channels)
-	, m_blocksCount(blocks)
 	, m_blocksFree(blocks)
-	, m_samplesPerBlock(samplesPerBlock)
 	, m_blockCurrent(0)
-	, m_blocksData(m_blocksCount, std::vector<short>(m_samplesPerBlock, 0))
-	, m_waveHeaders(m_blocksCount)
+	, m_blocksData(blocks, std::vector<short>(samplesPerBlock, 0))
+	, m_waveHeaders(blocks)
 	, m_noizeFunc(nullptr)
 	, m_globalTime(0.0)
 {
@@ -42,10 +40,8 @@ SoundWrapper::SoundWrapper(const std::wstring& outputDevice, int sampleRate, sho
 	m_thread = std::thread(&SoundWrapper::MainThread, this);
 
 	// Start the ball rolling
-	//std::unique_lock<std::mutex> lm(m_muxBlockNotZero);
-	//m_cvBlockNotZero.notify_one();
-
-	//return true;
+	std::unique_lock<std::mutex> lm(m_muxNoFreeBlocks);
+	m_cvNoFreeBlocks.notify_one();
 }
 
 SoundWrapper::~SoundWrapper()
@@ -65,7 +61,7 @@ double SoundWrapper::GetGlobalTime() const
 	return m_globalTime;
 }
 
-void SoundWrapper::SetNoizeFunc(std::function<double(double)>& f)
+void SoundWrapper::SetNoizeFunc(std::function<double(double)> f)
 {
 	m_noizeFunc = f;
 }
@@ -94,6 +90,11 @@ size_t SoundWrapper::GetDeviceId(const std::wstring& device)
 	return static_cast<size_t>(std::distance(devices.begin(), d));
 }
 
+double SoundWrapper::defaultNoize(double /*time*/) const
+{
+	return 0.0;
+}
+
 bool SoundWrapper::deviceIsValid(const std::wstring& deviceName) const
 {
 	auto devices = GetAudioDevicesNames();
@@ -105,15 +106,15 @@ bool SoundWrapper::deviceIsValid(const std::wstring& deviceName) const
 
 void SoundWrapper::linkHeaders()
 {
-	for (size_t n = 0; n < m_blocksCount; n++)
+	for (size_t n = 0; n < m_blocksData.size(); n++)
 	{
 		m_waveHeaders[n] = std::make_unique<WAVEHDR>();
-		m_waveHeaders[n]->dwBufferLength = static_cast<DWORD>(m_samplesPerBlock * sizeof(short));
+		m_waveHeaders[n]->dwBufferLength = static_cast<DWORD>(m_blocksData[n].size() * sizeof(short));
 		m_waveHeaders[n]->lpData = (LPSTR)(m_blocksData[n].data());
 	}
 }
 
-double SoundWrapper::clip(double sample, double max)
+double SoundWrapper::clip(double sample, double max) const
 {
 	if (sample >= 0.0)
 		return std::fmin(sample, max);
@@ -134,17 +135,19 @@ void SoundWrapper::waveOutProc(HWAVEOUT /*waveOut*/, UINT msg, DWORD /*param1*/,
 
 void CALLBACK SoundWrapper::waveOutProcWrap(HWAVEOUT waveOut, UINT msg, DWORD instance, DWORD param1, DWORD param2)
 {
-	reinterpret_cast<SoundWrapper*>(instance)->waveOutProc(waveOut, msg, param1, param2);
+	((SoundWrapper*)instance)->waveOutProc(waveOut, msg, param1, param2);
 }
 
 void SoundWrapper::MainThread()
 {
-	double timeStep = 1.0 / m_sampleRate;
+	const double timeStep = 1.0 / m_sampleRate;
 
 	constexpr short maxSample = std::numeric_limits<short>::max();
 	constexpr double dMaxSample = static_cast<double>(maxSample);
 	short previousSample = 0;
 
+	const auto samplesPerBlock = m_blocksData[m_blockCurrent].size();
+	const auto blocksQuantity  = m_blocksData.size();
 	while (m_isReady)
 	{
 		// Wait for block to become available
@@ -163,12 +166,11 @@ void SoundWrapper::MainThread()
 			waveOutUnprepareHeader(m_device, m_waveHeaders[m_blockCurrent].get(), sizeof(WAVEHDR));
 
 		short newSample = 0;
-		//#TODO - use containers logic?
-		for (size_t n = 0; n < m_samplesPerBlock; n++)
+		for (size_t n = 0; n < samplesPerBlock; n++)
 		{
 			// User Process
 			if (m_noizeFunc == nullptr)
-				newSample = (short)(clip(0.0, 1.0) * dMaxSample);
+				newSample = (short)(clip(defaultNoize(m_globalTime), 1.0) * dMaxSample);
 			else
 				newSample = (short)(clip(m_noizeFunc(m_globalTime), 1.0) * dMaxSample);
 
@@ -181,6 +183,6 @@ void SoundWrapper::MainThread()
 		// Send block to sound device
 		waveOutPrepareHeader(m_device, m_waveHeaders[m_blockCurrent].get(), sizeof(WAVEHDR));
 		waveOutWrite(m_device, m_waveHeaders[m_blockCurrent].get(), sizeof(WAVEHDR));
-		m_blockCurrent = (m_blockCurrent + 1) % m_blocksCount;
+		m_blockCurrent = (m_blockCurrent + 1) % blocksQuantity;
 	}
 }
