@@ -15,7 +15,7 @@ SoundWrapper::SoundWrapper(const std::wstring& outputDevice, int sampleRate, sho
 	, m_blockCurrent(0)
 	, m_blocksData(blocks, std::vector<short>(samplesPerBlock, 0))
 	, m_waveHeaders(blocks)
-	, m_noizeFunc(nullptr)
+	, m_soundFunc(nullptr)
 	, m_globalTime(0.0)
 {
 	WAVEFORMATEX waveFormat;
@@ -40,7 +40,7 @@ SoundWrapper::SoundWrapper(const std::wstring& outputDevice, int sampleRate, sho
 	m_thread = std::thread(&SoundWrapper::MainThread, this);
 
 	// Start the ball rolling
-	std::unique_lock<std::mutex> lm(m_muxNoFreeBlocks);
+	std::scoped_lock<std::mutex> lm(m_muxNoFreeBlocks);
 	m_cvNoFreeBlocks.notify_one();
 }
 
@@ -61,9 +61,9 @@ double SoundWrapper::GetGlobalTime() const
 	return m_globalTime;
 }
 
-void SoundWrapper::SetNoizeFunc(std::function<double(double)> f)
+void SoundWrapper::SetSoundFunc(std::function<double(double)> f)
 {
-	m_noizeFunc = f;
+	m_soundFunc = f;
 }
 
 std::vector<std::wstring> SoundWrapper::GetAudioDevicesNames()
@@ -90,7 +90,7 @@ size_t SoundWrapper::GetDeviceId(const std::wstring& device)
 	return static_cast<size_t>(std::distance(devices.begin(), d));
 }
 
-double SoundWrapper::defaultNoize(double /*time*/) const
+double SoundWrapper::defaultSound(double /*time*/) const
 {
 	return 0.0;
 }
@@ -169,10 +169,10 @@ void SoundWrapper::MainThread()
 		for (size_t n = 0; n < samplesPerBlock; n++)
 		{
 			// User Process
-			if (m_noizeFunc == nullptr)
-				newSample = (short)(clip(defaultNoize(m_globalTime), 1.0) * dMaxSample);
+			if (m_soundFunc == nullptr)
+				newSample = (short)(clip(defaultSound(m_globalTime), 1.0) * dMaxSample);
 			else
-				newSample = (short)(clip(m_noizeFunc(m_globalTime), 1.0) * dMaxSample);
+				newSample = (short)(clip(m_soundFunc(m_globalTime), 1.0) * dMaxSample);
 
 			//#TODO - to think about this
 			m_blocksData[m_blockCurrent][n] = newSample;

@@ -14,14 +14,14 @@ public:
 
 	double GetGlobalTime() const;
 
-	void SetNoizeFunc(std::function<double(double)> f);
+	void SetSoundFunc(std::function<double(double)> f);
 
 	//#TODO: to make GetAudioDevices by WinAPI?
 	static std::vector<std::wstring> GetAudioDevicesNames();
 	static size_t GetDeviceId(const std::wstring& device);
 
 private:
-	std::function<double(double)> m_noizeFunc;
+	std::function<double(double)> m_soundFunc;
 
 	//#TODO: better names?
 	int m_sampleRate;						// How much wave vibrations per second (Hz). Low - it's bass; Hight - it's soprano
@@ -41,7 +41,7 @@ private:
 	std::atomic<double> m_globalTime;
 
 	// Override for definition of behavior without noizeFunc()
-	virtual double defaultNoize(double time) const;
+	virtual double defaultSound(double time) const;
 
 	bool deviceIsValid(const std::wstring& deviceName) const;
 

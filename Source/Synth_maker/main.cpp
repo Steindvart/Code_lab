@@ -1,7 +1,7 @@
 #include "Shared/stdafx.h"
+#include "Shared/Exception.h"
 
 #include "SoundWrapper.h"
-#include "Shared/Exception.h"
 
 namespace Octaves
 {
@@ -22,24 +22,27 @@ enum Type
 static const std::vector<double> All{ A0_val, A1_val, A2_val, A3_val, A4_val, A5_val, A6_val, A7_val, A8_val };
 }
 
-//#TODO - think about this
-// Global synthesizer variables
-std::atomic<double> g_frequencyOutput = 0.0;		// dominant output frequency of instrument, i.e. the note
-double g_octaveBaseFrequency = Octaves::A3_val;		// frequency of octave represented by keyboard
 double g_12thRootOf2 = pow(2.0, 1.0 / 12.0);		// assuming western 12 notes per ocatave
 
-#define MASTER_VOLUME 0.8
-
-// Function used by SoundWrapper to generate sound waves
-// Returns amplitude (-1.0 to +1.0) as a function of time
-double MakeNoise(const double& time)
+struct MakeSoundFunct
 {
-	const double radiansFromFrequency = g_frequencyOutput * 2.0 * std::numbers::pi;
-	return sin(radiansFromFrequency * time) * MASTER_VOLUME;
-}
+	double& m_frequencyOutput;
+	double m_masterVolume;
+
+	MakeSoundFunct() = delete;
+	explicit MakeSoundFunct(double& frequencyOutput) : m_frequencyOutput(frequencyOutput), m_masterVolume(0.5) {}
+	explicit MakeSoundFunct(double& frequencyOutput, double volume) : m_frequencyOutput(frequencyOutput), m_masterVolume(volume) {}
+
+	double operator() (double time)
+	{
+		const double radiansFromFrequency = m_frequencyOutput * 2.0 * std::numbers::pi;
+		return sin(radiansFromFrequency * time) * m_masterVolume;
+	}
+};
 
 int main(int, char*[])
 {
+	//#DEFECT - for cyrillic char-page in windows. Need to chose more elegant alternative
 	setlocale(LC_ALL, "Russian");
 	std::wcout << "Synth_maker - simple software synthesizer.\n" << std::endl;
 
@@ -53,17 +56,21 @@ int main(int, char*[])
 	std::wcout << std::endl << "Using device: 0. " << usingDevice;
 
 	std::wcout << std::endl <<
-		"|   |   |   |   |   | |   |   |   |   | |   | |   |   |   |" << std::endl <<
-		"|   | W |   |   | R | | T |   |   | U | | I | | O |   |   |" << std::endl <<
-		"|   |___|   |   |___| |___|   |   |___| |___| |___|   |   |__" << std::endl <<
-		"|     |     |     |     |     |     |     |     |     |     |" << std::endl <<
-		"|  A  |  S  |  D  |  F  |  G  |  H  |  J  |  K  |  L  |  /  |" << std::endl <<
-		"|_____|_____|_____|_____|_____|_____|_____|_____|_____|_____|" << std::endl << std::endl;
+		"|   |   |   |   |   | |   |   |   |   | |   | |   |   |   |   | |   |   |" << std::endl <<
+		"|   | W |   |   | R | | T |   |   | U | | I | | O |   |   | [ | | ] |   |" << std::endl <<
+		"|   |___|   |   |___| |___|   |   |___| |___| |___|   |   |___| |___|   |" << std::endl <<
+		"|     |     |     |     |     |     |     |     |     |     |     |     |" << std::endl <<
+		"|  A  |  S  |  D  |  F  |  G  |  H  |  J  |  K  |  L  |  ;  |  '  |  \\  |" << std::endl <<
+		"|_____|_____|_____|_____|_____|_____|_____|_____|_____|_____|_____|_____|" << std::endl << std::endl;
 
 	try
 	{
 		SoundWrapper soundMachine(usingDevice, 44100, 1, 8, 512);
-		soundMachine.SetNoizeFunc(MakeNoise);
+
+		//#TODO - to make atomic?
+		double frequency = 0.0;
+		MakeSoundFunct soundFunc(frequency, 0.8);
+		soundMachine.SetSoundFunc(soundFunc);
 
 		// Sit in loop, capturing keyboard state changes and modify
 		// synthesizer output accordingly
@@ -79,8 +86,8 @@ int main(int, char*[])
 				{
 					if (currKey != k)
 					{
-						g_frequencyOutput = g_octaveBaseFrequency * pow(g_12thRootOf2, k);
-						std::wcout << "\rNote On : " << soundMachine.GetGlobalTime() << "s " << g_frequencyOutput << "Hz";
+						frequency = Octaves::All[currOct] * pow(g_12thRootOf2, k);
+						std::wcout << "\rNote On : " << soundMachine.GetGlobalTime() << "s " << frequency << "Hz";
 						currKey = k;
 					}
 
@@ -95,19 +102,11 @@ int main(int, char*[])
 				if (GetAsyncKeyState(key) & 0x01)
 				{
 					if (key == 'Z' && currOct > Octaves::A0)
-					{
 						currOct = static_cast<Octaves::Type>(currOct - 1);
-						g_octaveBaseFrequency = Octaves::All[currOct];
-					}
-
 					if (key == 'X' && currOct < Octaves::A8)
-					{
 						currOct = static_cast<Octaves::Type>(currOct + 1);
-						g_octaveBaseFrequency = Octaves::All[currOct];
-					}
 				}
 			}
-
 
 			if (!isKeyPressed)
 			{
@@ -117,7 +116,7 @@ int main(int, char*[])
 					currKey = -1;
 				}
 
-				g_frequencyOutput = 0.0;
+				frequency = 0.0;
 			}
 		}
 	}
