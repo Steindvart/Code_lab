@@ -15,6 +15,7 @@
 #include <string>
 #include <functional>
 #include <numeric>
+#include <numbers>
 
 // STL-containers
 #include <vector>

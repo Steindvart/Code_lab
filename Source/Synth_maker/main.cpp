@@ -3,21 +3,42 @@
 #include "SoundWrapper.h"
 #include "Shared/Exception.h"
 
+namespace Octaves
+{
+constexpr double A0_val = 27.5;
+constexpr double A1_val = A0_val * 2;
+constexpr double A2_val = A1_val * 2;
+constexpr double A3_val = A2_val * 2;
+constexpr double A4_val = A3_val * 2;
+constexpr double A5_val = A4_val * 2;
+constexpr double A6_val = A5_val * 2;
+constexpr double A7_val = A6_val * 2;
+constexpr double A8_val = A7_val * 2;
+
+enum Type
+{
+	A0, A1, A2, A3, A4, A5, A6, A7, A8
+};
+static const std::vector<double> All{ A0_val, A1_val, A2_val, A3_val, A4_val, A5_val, A6_val, A7_val, A8_val };
+}
+
 //#TODO - think about this
 // Global synthesizer variables
 std::atomic<double> g_frequencyOutput = 0.0;		// dominant output frequency of instrument, i.e. the note
-double g_octaveBaseFrequency = 110.0; // A2			// frequency of octave represented by keyboard
+double g_octaveBaseFrequency = Octaves::A3_val;		// frequency of octave represented by keyboard
 double g_12thRootOf2 = pow(2.0, 1.0 / 12.0);		// assuming western 12 notes per ocatave
+
+#define MASTER_VOLUME 0.8
 
 // Function used by SoundWrapper to generate sound waves
 // Returns amplitude (-1.0 to +1.0) as a function of time
-double MakeNoise(double time)
+double MakeNoise(const double& time)
 {
-	double output = sin(g_frequencyOutput * 2.0 * 3.14159 * time);
-	return output * 0.5; // Master Volume
+	const double radiansFromFrequency = g_frequencyOutput * 2.0 * std::numbers::pi;
+	return sin(radiansFromFrequency * time) * MASTER_VOLUME;
 }
 
-int main()
+int main(int, char*[])
 {
 	setlocale(LC_ALL, "Russian");
 	std::wcout << "Synth_maker - simple software synthesizer.\n" << std::endl;
@@ -25,7 +46,7 @@ int main()
 	const auto availableDevices = SoundWrapper::GetAudioDevicesNames();
 
 	std::wcout << "Available devices:" << std::endl;
-	for (auto i = 0; i < availableDevices.size(); i++)
+	for (size_t i = 0; i < availableDevices.size(); i++)
 		std::wcout << i << ". " << availableDevices[i] << std::endl;
 
 	const auto usingDevice = availableDevices[0];
@@ -33,10 +54,10 @@ int main()
 
 	std::wcout << std::endl <<
 		"|   |   |   |   |   | |   |   |   |   | |   | |   |   |   |" << std::endl <<
-		"|   | S |   |   | F | | G |   |   | J | | K | | L |   |   |" << std::endl <<
+		"|   | W |   |   | R | | T |   |   | U | | I | | O |   |   |" << std::endl <<
 		"|   |___|   |   |___| |___|   |   |___| |___| |___|   |   |__" << std::endl <<
 		"|     |     |     |     |     |     |     |     |     |     |" << std::endl <<
-		"|  Z  |  X  |  C  |  V  |  B  |  N  |  M  |  ,  |  .  |  /  |" << std::endl <<
+		"|  A  |  S  |  D  |  F  |  G  |  H  |  J  |  K  |  L  |  /  |" << std::endl <<
 		"|_____|_____|_____|_____|_____|_____|_____|_____|_____|_____|" << std::endl << std::endl;
 
 	try
@@ -48,12 +69,13 @@ int main()
 		// synthesizer output accordingly
 		int currKey = -1;
 		bool isKeyPressed = false;
+		Octaves::Type currOct = Octaves::A3;
 		while (true)
 		{
 			isKeyPressed = false;
 			for (int k = 0; k < 16; k++)
 			{
-				if (GetAsyncKeyState((unsigned char)("ZSXCFVGBNJMK\xbcL\xbe\xbf"[k])) & 0x8000)
+				if (GetAsyncKeyState((unsigned char)("AWSDRFTGHUJIKOL\xBA"[k])) & 0x8000)
 				{
 					if (currKey != k)
 					{
@@ -65,28 +87,49 @@ int main()
 					isKeyPressed = true;
 				}
 			}
+			
+			//#TODO - output current octave
+			for (int k = 0; k < 2; k++)
+			{
+				char key = "ZX"[k];
+				if (GetAsyncKeyState(key) & 0x01)
+				{
+					if (key == 'Z' && currOct > Octaves::A0)
+					{
+						currOct = static_cast<Octaves::Type>(currOct - 1);
+						g_octaveBaseFrequency = Octaves::All[currOct];
+					}
+
+					if (key == 'X' && currOct < Octaves::A8)
+					{
+						currOct = static_cast<Octaves::Type>(currOct + 1);
+						g_octaveBaseFrequency = Octaves::All[currOct];
+					}
+				}
+			}
+
 
 			if (!isKeyPressed)
 			{
 				if (currKey != -1)
 				{
-					std::wcout << "\rNote Off: " << soundMachine.GetGlobalTime() << "s                        ";
+					std::wcout << "\rNote Off: " << soundMachine.GetGlobalTime() << "s               ";
 					currKey = -1;
 				}
 
 				g_frequencyOutput = 0.0;
 			}
 		}
-
-		return 0;
 	}
 	catch (Shared::Exception& ex)
 	{
 		std::wcout << ex.Reason() << std::endl;
+		return 1;
 	}
 	catch (std::exception& ex)
 	{
 		std::cout << ex.what() << std::endl;
+		return 1;
 	}
 
 	return 0;
