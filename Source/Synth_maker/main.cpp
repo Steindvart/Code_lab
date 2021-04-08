@@ -3,6 +3,10 @@
 
 #include "SoundWrapper.h"
 
+// Aliases for mask of GetAsyncKeyState() response
+#define KEY_HOLD 0x8000
+#define KEY_PRESS 0x01
+
 namespace Octaves
 {
 constexpr double A0_val = 27.5;
@@ -22,17 +26,16 @@ enum Type
 static const std::vector<double> All{ A0_val, A1_val, A2_val, A3_val, A4_val, A5_val, A6_val, A7_val, A8_val };
 }
 
-double g_12thRootOf2 = pow(2.0, 1.0 / 12.0);		// assuming western 12 notes per ocatave
-
 struct MakeSoundFunct
 {
 	double& m_frequencyOutput;
 	double m_masterVolume;
 
 	MakeSoundFunct() = delete;
-	explicit MakeSoundFunct(double& frequencyOutput) : m_frequencyOutput(frequencyOutput), m_masterVolume(0.5) {}
-	explicit MakeSoundFunct(double& frequencyOutput, double volume) : m_frequencyOutput(frequencyOutput), m_masterVolume(volume) {}
+	explicit MakeSoundFunct(double& frequencyOutput) : m_frequencyOutput(frequencyOutput), m_masterVolume(0.25) {}
+	MakeSoundFunct(double& frequencyOutput, double volume) : m_frequencyOutput(frequencyOutput), m_masterVolume(volume) {}
 
+	// time variable need, because it's shift on `x` coordinate 
 	double operator() (double time)
 	{
 		const double radiansFromFrequency = m_frequencyOutput * 2.0 * std::numbers::pi;
@@ -52,7 +55,7 @@ int main(int, char*[])
 	for (size_t i = 0; i < availableDevices.size(); i++)
 		std::wcout << i << ". " << availableDevices[i] << std::endl;
 
-	const auto usingDevice = availableDevices[0];
+	const auto usingDevice = *availableDevices.begin();
 	std::wcout << std::endl << "Using device: 0. " << usingDevice;
 
 	std::wcout << std::endl <<
@@ -69,24 +72,27 @@ int main(int, char*[])
 
 		//#TODO - to make atomic?
 		double frequency = 0.0;
-		MakeSoundFunct soundFunc(frequency, 0.8);
+		MakeSoundFunct soundFunc(frequency, 0.1);
 		soundMachine.SetSoundFunc(soundFunc);
 
-		// Sit in loop, capturing keyboard state changes and modify
-		// synthesizer output accordingly
-		int currKey = -1;
-		bool isKeyPressed = false;
+		double Root12Of2 = pow(2.0, 1.0 / 12.0);		// assuming western 12 notes per ocatave
 		Octaves::Type currOct = Octaves::A3;
+
+		size_t currKey = -1;
+		bool isKeyPressed = false;
+		const std::string pianoKeys{ "AWSDRFTGHUJIKOL\xBA\xDB\xDE\xDD\xDC" };
+		const std::string controlKeys{ "ZX" };
+
 		while (true)
 		{
 			isKeyPressed = false;
-			for (int k = 0; k < 16; k++)
+			for (size_t k = 0; k < pianoKeys.size(); k++)
 			{
-				if (GetAsyncKeyState((unsigned char)("AWSDRFTGHUJIKOL\xBA"[k])) & 0x8000)
+				if (GetAsyncKeyState(static_cast<unsigned char>(pianoKeys[k])) & KEY_HOLD)
 				{
 					if (currKey != k)
 					{
-						frequency = Octaves::All[currOct] * pow(g_12thRootOf2, k);
+						frequency = Octaves::All[currOct] * pow(Root12Of2, k);
 						std::wcout << "\rNote On : " << soundMachine.GetGlobalTime() << "s " << frequency << "Hz";
 						currKey = k;
 					}
@@ -96,14 +102,13 @@ int main(int, char*[])
 			}
 			
 			//#TODO - output current octave
-			for (int k = 0; k < 2; k++)
+			for (auto k : controlKeys)
 			{
-				char key = "ZX"[k];
-				if (GetAsyncKeyState(key) & 0x01)
+				if (GetAsyncKeyState(k) & KEY_PRESS)
 				{
-					if (key == 'Z' && currOct > Octaves::A0)
+					if (k == 'Z' && currOct > Octaves::A0)
 						currOct = static_cast<Octaves::Type>(currOct - 1);
-					if (key == 'X' && currOct < Octaves::A8)
+					if (k == 'X' && currOct < Octaves::A8)
 						currOct = static_cast<Octaves::Type>(currOct + 1);
 				}
 			}
