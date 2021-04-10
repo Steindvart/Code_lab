@@ -7,7 +7,7 @@ class SoundWrapper
 {
 public:
 	SoundWrapper() = delete;
-	SoundWrapper(const std::wstring& outputDevice, int sampleRate, short channels, size_t blocks, size_t samplesPerBlock);
+	SoundWrapper(const std::wstring& outputDevice, int sampleRate, short channels, size_t blocks, size_t samplesPerBlock, std::function<double(double)> f);
 	~SoundWrapper();
 
 	void Stop();

@@ -4,7 +4,7 @@
 #include "SoundWrapper.h"
 
 // Aliases for mask of GetAsyncKeyState() response
-#define KEY_HOLD 0x8000
+#define KEY_HOLD  0x8000
 #define KEY_PRESS 0x01
 
 namespace Octaves
@@ -68,17 +68,16 @@ int main(int, char*[])
 
 	try
 	{
-		SoundWrapper soundMachine(usingDevice, 44100, 1, 8, 512);
-
 		//#TODO - to make atomic?
 		double frequency = 0.0;
 		MakeSoundFunct soundFunc(frequency, 0.1);
-		soundMachine.SetSoundFunc(soundFunc);
+		SoundWrapper soundMachine(usingDevice, 44100, 1, 8, 512, soundFunc);
 
-		double Root12Of2 = pow(2.0, 1.0 / 12.0);		// assuming western 12 notes per ocatave
+		const double Root12Of2 = pow(2.0, 1.0 / 12.0);		// assuming western 12 notes per ocatave
 		Octaves::Type currOct = Octaves::A3;
 
-		size_t currKey = -1;
+		//#DEFECT - looking bad
+		int currKey = -1;
 		bool isKeyPressed = false;
 		const std::string pianoKeys{ "AWSDRFTGHUJIKOL\xBA\xDB\xDE\xDD\xDC" };
 		const std::string controlKeys{ "ZX" };
@@ -86,7 +85,7 @@ int main(int, char*[])
 		while (true)
 		{
 			isKeyPressed = false;
-			for (size_t k = 0; k < pianoKeys.size(); k++)
+			for (int k = 0; k < pianoKeys.size(); k++)
 			{
 				if (GetAsyncKeyState(static_cast<unsigned char>(pianoKeys[k])) & KEY_HOLD)
 				{
@@ -115,13 +114,13 @@ int main(int, char*[])
 
 			if (!isKeyPressed)
 			{
+				frequency = 0.0;
+
 				if (currKey != -1)
 				{
 					std::wcout << "\rNote Off: " << soundMachine.GetGlobalTime() << "s               ";
 					currKey = -1;
 				}
-
-				frequency = 0.0;
 			}
 		}
 	}

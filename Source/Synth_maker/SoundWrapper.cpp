@@ -3,19 +3,18 @@
 #include "Shared/stdafx.h"
 
 #include "SoundWrapper.h"
-
 #include "Shared/Exception.h"
 
 #define BITS_PER_BYTE CHAR_BIT 
 
-SoundWrapper::SoundWrapper(const std::wstring& outputDevice, int sampleRate, short channels, size_t blocks, size_t samplesPerBlock)
+SoundWrapper::SoundWrapper(const std::wstring& outputDevice, int sampleRate, short channels, size_t blocks, size_t samplesPerBlock, std::function<double(double)> f)
 	: m_sampleRate(sampleRate)
 	, m_channels(channels)
 	, m_blocksFree(blocks)
 	, m_blockCurrent(0)
 	, m_blocksData(blocks, std::vector<short>(samplesPerBlock, 0))
 	, m_waveHeaders(blocks)
-	, m_soundFunc(nullptr)
+	, m_soundFunc(f)
 	, m_globalTime(0.0)
 {
 	WAVEFORMATEX waveFormat;
