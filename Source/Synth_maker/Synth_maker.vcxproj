@@ -190,6 +190,7 @@
     <ClCompile Include="SoundWrapper.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Octaves.h" />
     <ClInclude Include="SoundWrapper.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
