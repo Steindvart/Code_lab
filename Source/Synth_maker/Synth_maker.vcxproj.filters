@@ -21,12 +21,21 @@
     <ClCompile Include="SoundWrapper.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="ADSRModule.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="SoundWrapper.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Octaves.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Oscillator.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ADSRModule.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -186,11 +186,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="ADSRModule.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="SoundWrapper.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="ADSRModule.h" />
     <ClInclude Include="Octaves.h" />
+    <ClInclude Include="Oscillator.h" />
     <ClInclude Include="SoundWrapper.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

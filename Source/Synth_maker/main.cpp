@@ -2,7 +2,9 @@
 #include "Shared/Exception.h"
 
 #include "SoundWrapper.h"
+#include "ADSRModule.h"
 #include "Octaves.h"
+#include "Oscillator.h"
 
 // Aliases for mask of GetAsyncKeyState() response
 #define KEY_HOLD  0x8000
@@ -16,20 +18,9 @@ double hzToAng(double hertz)
 	return hertz * 2.0 * pi;
 }
 
-//#TODO - transform to class or namespace and put to different translation unit
-enum class Oscillator
+double oscFunc(double hertz, double time, Oscillator::Type osc)
 {
-	SINE,
-	SQUARE,
-	TRIANGLE,
-	SAW_ANA,
-	SAW_DIG,
-	NOISE
-};
-
-double oscFunc(double hertz, double time, Oscillator type)
-{
-	switch (type)
+	switch (osc)
 	{
 	case Oscillator::SINE:
 		return sin(hzToAng(hertz) * time);
@@ -55,134 +46,47 @@ double oscFunc(double hertz, double time, Oscillator type)
 	}
 }
 
-//#TODO - put to different translation unit
-// Amplitude (Attack, Decay, Sustain, Release) Module
-class ADSRModule
-{
-private:
-	double m_attackTime;
-	double m_decayTime;
-	double m_releaseTime;
-
-	double m_sustainAmplitude;
-	double m_startAmplitude;
-	double m_triggerOffTime;
-	double m_triggerOnTime;
-	bool   m_noteOn;
-
-	enum Phase
-	{
-		ATTACK,
-		DECAY,
-		SUSTAIN,
-		RELEASE
-	};
-
-	Phase getPhase(double lifeTime) const
-	{
-		if (lifeTime <= m_attackTime)
-			return ATTACK;
-		else if (lifeTime > m_attackTime && lifeTime <= (m_attackTime + m_decayTime))
-			return DECAY;
-		else if (lifeTime > (m_attackTime + m_decayTime))
-			return SUSTAIN;
-		else
-			return RELEASE;
-	}
-
-public:
-	ADSRModule()
-		: m_attackTime(0.1)
-		, m_decayTime(0.01)
-		, m_releaseTime(0.2)
-		, m_sustainAmplitude(0.8)
-		, m_startAmplitude(1.0)
-		, m_triggerOnTime(0.0)
-		, m_triggerOffTime(0.0)
-		, m_noteOn(false)
-	{ }
-
-	// Call when key is pressed
-	void NoteOn(double timeOn)
-	{
-		m_triggerOnTime = timeOn;
-		m_noteOn = true;
-	}
-
-	// Call when key is released
-	void NoteOff(double timeOff)
-	{
-		m_triggerOffTime = timeOff;
-		m_noteOn = false;
-	}
-
-	// Get the correct amplitude at the requested point in time
-	double GetAmplitude(double time)
-	{
-		double amplitude = 0.0;
-		double lifeTime = time - m_triggerOnTime;
-
-		if (m_noteOn)
-		{
-			switch (getPhase(lifeTime))
-			{
-			case ADSRModule::ATTACK:
-				amplitude = (lifeTime / m_attackTime) * m_startAmplitude;
-				break;
-			case ADSRModule::DECAY:
-				amplitude = ((lifeTime - m_attackTime) / m_decayTime) * (m_sustainAmplitude - m_startAmplitude) + m_startAmplitude;
-				break;
-			case ADSRModule::SUSTAIN:
-				amplitude = m_sustainAmplitude;
-				break;
-			default:
-				break;
-			}
-		}
-		else
-		{
-			// Note has been released, so in release phase
-			amplitude = ((time - m_triggerOffTime) / m_releaseTime) * (0.0 - m_sustainAmplitude) + m_sustainAmplitude;
-		}
-
-		// Amplitude should not be negative
-		if (amplitude <= 0.0001)
-			amplitude = 0.0;
-
-		return amplitude;
-	}
-
-
-};
-
+// #TODO - better name?
 struct MakeSoundFunct
 {
 	double& m_frequencyOutput;
-	Oscillator& m_currOsc;
+	Oscillator::Type& m_currOsc;
 	ADSRModule& m_ADSR;
 
 	double m_masterVolume;
 
 	MakeSoundFunct() = delete;
-	explicit MakeSoundFunct(double& frequencyOutput, Oscillator& osc, ADSRModule& adsr) 
+	explicit MakeSoundFunct(double& frequencyOutput, Oscillator::Type& osc, ADSRModule& adsr) 
 		: m_frequencyOutput(frequencyOutput)
 		, m_currOsc(osc)
 		, m_ADSR(adsr)
 		, m_masterVolume(0.25)
 	{}
-	MakeSoundFunct(double& frequencyOutput, Oscillator& osc, ADSRModule& adsr, double volume)
+	MakeSoundFunct(double& frequencyOutput, Oscillator::Type& osc, ADSRModule& adsr, double volume)
 		: m_frequencyOutput(frequencyOutput)
 		, m_currOsc(osc)
 		, m_ADSR(adsr)
 		, m_masterVolume(volume)
 	{}
 
-	// time variable need, because it's shift on `x` coordinate 
+	// time variable need, because it's shift on `x` coordinate
 	double operator() (double time)
 	{
 		return m_ADSR.GetAmplitude(time) * oscFunc(m_frequencyOutput, time, m_currOsc) * m_masterVolume;
 	}
 };
+
+void printControls(std::wostream& out, const Oscillator::Type osc, const Octaves::Type oct, const double freq, const bool noteOn)
+{
+	//#TODO - need buffer
+	//out << L"\rOscillator: " << Oscillator::Markers[osc];
+	//out << L"\Octave: "      << Octaves::Markers[osc];
+
+	if (noteOn)
+		out << L"\rNote On: " << freq << "Hz        ";
+	else
+		out << L"\rNote Off: " << freq << "Hz       ";
+}
 
 int main(int, char*[])
 {
@@ -211,35 +115,35 @@ int main(int, char*[])
 	{
 		//#TODO - to make atomic?
 		double frequency = 0.0;
-		Oscillator currOsc = Oscillator::SINE;
+		Oscillator::Type currOsc = Oscillator::SINE;
 		ADSRModule ADSR;
 		Octaves::Type currOct = Octaves::A3;
 
 		MakeSoundFunct soundFunc(frequency, currOsc, ADSR , 0.5);
 		SoundWrapper soundMachine(usingDevice, 44100, 1, 8, 512, soundFunc);
 
-		const double Root12Of2 = pow(2.0, 1.0 / 12.0);		// assuming western 12 notes per octave
+		const double c_Root12Of2 = pow(2.0, 1.0 / 12.0);		// assuming western 12 notes per octave
 
 		//#DEFECT - looking bad
 		int currKey = -1;
 		bool isKeyPressed = false;
-		const std::string pianoKeys{ "AWSDRFTGHUJIKOL\xBA\xDB\xDE\xDD\xDC" };
-		const std::string controlKeys{ "ZX12345" };
+		const std::string c_pianoKeys{ "AWSDRFTGHUJIKOL\xBA\xDB\xDE\xDD\xDC" };
+		const std::string c_controlKeys{ "ZX12345" };
 
 		while (true)
 		{
 			isKeyPressed = false;
-			for (int k = 0; k < pianoKeys.size(); k++)
+			for (int k = 0; k < c_pianoKeys.size(); k++)
 			{
-				if (GetAsyncKeyState(static_cast<unsigned char>(pianoKeys[k])) & KEY_HOLD)
+				if (GetAsyncKeyState(static_cast<unsigned char>(c_pianoKeys[k])) & KEY_HOLD)
 				{
 					if (currKey != k)
 					{
-						frequency = Octaves::All[currOct] * pow(Root12Of2, k);
+						frequency = Octaves::Values[currOct] * pow(c_Root12Of2, k);
 						ADSR.NoteOn(soundMachine.GetGlobalTime());
 						currKey = k;
 
-						std::wcout << "\rNote On : " << soundMachine.GetGlobalTime() << "s " << frequency << "Hz";
+						printControls(std::wcout, currOsc, currOct, frequency, true);
 					}
 
 					isKeyPressed = true;
@@ -247,7 +151,7 @@ int main(int, char*[])
 			}
 			
 			//#TODO - output current settings
-			for (auto k : controlKeys)
+			for (auto k : c_controlKeys)
 			{
 				if (GetAsyncKeyState(k) & KEY_PRESS)
 				{
@@ -276,7 +180,7 @@ int main(int, char*[])
 					ADSR.NoteOff(soundMachine.GetGlobalTime());
 					currKey = -1;
 
-					std::wcout << "\rNote Off: " << soundMachine.GetGlobalTime() << "s               ";
+					printControls(std::wcout, currOsc, currOct, frequency, false);
 				}
 			}
 		}
@@ -288,7 +192,7 @@ int main(int, char*[])
 	}
 	catch (std::exception& ex)
 	{
-		std::cout << ex.what() << std::endl;
+		std::wcout << ex.what() << std::endl;
 		return 1;
 	}
 

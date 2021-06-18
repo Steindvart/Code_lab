@@ -160,7 +160,7 @@
     <ClInclude Include="stdafx.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="CommonUtil.h.cpp" />
+    <ClCompile Include="CommonUtil.cpp" />
     <ClCompile Include="Exception.cpp" />
     <ClCompile Include="stdafx.cpp" />
   </ItemGroup>

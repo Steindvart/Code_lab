@@ -7,7 +7,8 @@
 
 #define BITS_PER_BYTE CHAR_BIT 
 
-SoundWrapper::SoundWrapper(const std::wstring& outputDevice, int sampleRate, short channels, size_t blocks, size_t samplesPerBlock, std::function<double(double)> f)
+SoundWrapper::SoundWrapper(const std::wstring& outputDevice, int sampleRate, short channels, 
+	size_t blocks, size_t samplesPerBlock, std::function<double(double)> f)
 	: m_sampleRate(sampleRate)
 	, m_channels(channels)
 	, m_blocksFree(blocks)
@@ -26,11 +27,11 @@ SoundWrapper::SoundWrapper(const std::wstring& outputDevice, int sampleRate, sho
 	waveFormat.nAvgBytesPerSec = waveFormat.nSamplesPerSec * waveFormat.nBlockAlign;
 	waveFormat.cbSize = 0;
 
-	size_t deviceID = GetDeviceId(outputDevice);
+	auto deviceID = GetDeviceId(outputDevice);
 	if (deviceID == ERROR_BAD_DEVICE)
 		throw Shared::Exception(L"SoundWrapper::SoundWrapper: device " + outputDevice + L" is not valid.");
 
-	if (waveOutOpen(&m_device, static_cast<UINT>(deviceID), &waveFormat, (DWORD_PTR)waveOutProcWrap, (DWORD_PTR)this, CALLBACK_FUNCTION) != S_OK)
+	if (S_OK != waveOutOpen(&m_device, static_cast<UINT>(deviceID), &waveFormat, (DWORD_PTR)waveOutProcWrap, (DWORD_PTR)this, CALLBACK_FUNCTION))
 		throw Shared::Exception(L"SoundWrapper::SoundWrapper: cannot open device " + outputDevice);
 
 	linkHeaders();

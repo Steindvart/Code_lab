@@ -16,7 +16,7 @@ std::wstring s2ws(const std::string& src)
 
 	int requiredSize = MultiByteToWideChar(CP_UTF8, 0, src.c_str(), -1, NULL, 0);
 
-	// #TODO: to made correct str constructors
+	//#TODO: correct str constructors
 	//std::wstring result(requiredSize - 1, INVALID_WCHAR);
 	std::wstring result(INVALID_WCHAR);
 	result.reserve(requiredSize);
