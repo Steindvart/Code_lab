@@ -2,6 +2,8 @@
 # Ignoring all files in catalogs:
 .vs/
 build/
+bin/
+obj/
 
 # Ignoring all files in all catalogs
 
