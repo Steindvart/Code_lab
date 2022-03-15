@@ -1,4 +1,4 @@
-# Funny experiments
+# Code lab
 > Some small and middle projects for fun and education
 
 Hello! This is my repository with experimental projects, who i create for education, prototypes of more difficult and pragmatic systems and just for fun :)
