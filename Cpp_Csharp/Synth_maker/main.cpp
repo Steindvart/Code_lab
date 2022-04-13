@@ -37,6 +37,7 @@ double oscFunc(double hertz, double time, Oscillator::Type osc)
 
 		return output * (2.0 / pi);
 	}
+	//#TODO: improve code style
 	case Oscillator::SAW_DIG: // Saw Wave (optimised / harsh / fast)
 		return (2.0 / pi) * (hertz * pi * fmod(time, 1.0 / hertz) - (pi / 2.0));
 	case Oscillator::NOISE: // Pseudorandom noise
